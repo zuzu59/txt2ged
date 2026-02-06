@@ -1,7 +1,9 @@
-« Écris un script Python qui lit un fichier texte décrivant un arbre généalogique 
+« Écris un script Python, nommé txt2ged.py, qui lit un fichier texte décrivant un arbre généalogique 
 (exemple : toto.txt) et génère un fichier GEDCOM (toto.ged).
+
 Chaque ligne contient un nom, une année de naissance et, optionnellement, 
 une année de décès séparées par un tiret ((1837-1901)).
+
 Le script doit conserver la hiérarchie indiquée par les tabulations, gérer 
 les conjoints séparés par ép, et écrire les balises GEDCOM BIRT et DEAT pour 
 les dates de naissance et de décès. »

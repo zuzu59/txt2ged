@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""Convert a tab-indented genealogical text file to GEDCOM.
+
+Usage: txt2ged.py input.txt output.ged
+
+Rules:
+- Tabs indicate parent/child levels.
+- Spouses are separated by the word "ép" (with optional surrounding spaces).
+- Years are in parentheses, ranges like 1859-1931 use first as birth, second as death.
+"""
+import re
+import sys
+
+
+def format_name(name: str) -> str:
+    parts = name.strip().split()
+    if not parts:
+        return "/"
+    surname = parts[-1]
+    given = " ".join(parts[:-1])
+    return f"{given} /{surname}/" if given else f"/{surname}/"
+
+
+def parse_person_part(part: str):
+    part = part.strip()
+    m = re.search(r"\(([^)]*)\)\s*$", part)
+    birth = None
+    death = None
+    if m:
+        years = m.group(1).strip()
+        # If range like 1859-1931
+        if "-" in years:
+            y1, y2 = years.split("-", 1)
+            y1 = y1.strip()
+            y2 = y2.strip()
+            birth = y1 if y1 else None
+            death = y2 if y2 else None
+        else:
+            birth = years if years else None
+        # remove the parenthesised years from name
+        name = part[:m.start()].strip()
+    else:
+        name = part
+    return name, birth, death
+
+
+def write_gedcom(indivs, fams, outfh):
+    outfh.write("0 HEAD\n")
+    outfh.write("1 SOUR txt2ged\n")
+    outfh.write("1 GEDC\n")
+    outfh.write("2 VERS 5.5.1\n")
+
+    # Individuals
+    for iid, data in indivs.items():
+        outfh.write(f"0 {iid} INDI\n")
+        outfh.write(f"1 NAME {format_name(data['name'])}\n")
+        if data.get('birth'):
+            outfh.write("1 BIRT\n")
+            outfh.write(f"2 DATE {data['birth']}\n")
+        if data.get('death'):
+            outfh.write("1 DEAT\n")
+            outfh.write(f"2 DATE {data['death']}\n")
+        # family as child
+        if data.get('famc'):
+            outfh.write(f"1 FAMC {data['famc']}\n")
+        # families as spouse
+        for f in data.get('fams', []):
+            outfh.write(f"1 FAMS {f}\n")
+
+    # Families
+    for fid, f in fams.items():
+        outfh.write(f"0 {fid} FAM\n")
+        if f.get('husb'):
+            outfh.write(f"1 HUSB {f['husb']}\n")
+        if f.get('wife'):
+            outfh.write(f"1 WIFE {f['wife']}\n")
+        for c in f.get('children', []):
+            outfh.write(f"1 CHIL {c}\n")
+
+    outfh.write("0 TRLR\n")
+
+
+def main(argv):
+    if len(argv) != 3:
+        print("Usage: txt2ged.py input.txt output.ged")
+        return 2
+
+    infile = argv[1]
+    outfile = argv[2]
+
+    indiv_counter = 1
+    fam_counter = 1
+
+    indivs = {}  # id -> {name, birth, death, famc, fams}
+    fams = {}
+    # stack mapping depth -> family id (the family whose children go at that depth)
+    stack_family = {}
+
+    with open(infile, encoding='utf-8') as fh:
+        for raw in fh:
+            # skip empty lines
+            if raw.strip() == "":
+                continue
+            depth = 0
+            while raw.startswith('\t'):
+                depth += 1
+                raw = raw[1:]
+            line = raw.strip()
+            # split spouse by 'ép' with optional spaces
+            parts = re.split(r"\s+ép\s+", line, maxsplit=1, flags=re.IGNORECASE)
+            main_part = parts[0]
+            spouse_part = parts[1] if len(parts) > 1 else None
+
+            name, birth, death = parse_person_part(main_part)
+            iid = f"@I{indiv_counter}@"
+            indiv_counter += 1
+            indivs[iid] = {"name": name, "birth": birth, "death": death, "fams": [], "famc": None}
+
+            # If there's a parent family at depth-1, this individual is a child
+            if depth > 0 and (depth - 1) in stack_family:
+                parent_fid = stack_family[depth - 1]
+                fams[parent_fid].setdefault('children', []).append(iid)
+                indivs[iid]['famc'] = parent_fid
+
+            # If spouse exists, create spouse individual and a family
+            if spouse_part:
+                sname, sbirth, sdeath = parse_person_part(spouse_part)
+                sid = f"@I{indiv_counter}@"
+                indiv_counter += 1
+                indivs[sid] = {"name": sname, "birth": sbirth, "death": sdeath, "fams": [], "famc": None}
+
+                fid = f"@F{fam_counter}@"
+                fam_counter += 1
+                # assume main person is husband and spouse is wife
+                fams[fid] = {"husb": iid, "wife": sid, "children": []}
+                indivs[iid]['fams'].append(fid)
+                indivs[sid]['fams'].append(fid)
+                # children of this couple should be placed at this depth
+                stack_family[depth] = fid
+
+            else:
+                # if no spouse and this person had their own family at this depth, clear it
+                # ensure there is not an orphan stack entry at this depth
+                if depth in stack_family and not fams.get(stack_family[depth], {}).get('children'):
+                    # do nothing — keep existing family if any
+                    pass
+
+    # Write GEDCOM
+    with open(outfile, 'w', encoding='utf-8') as outfh:
+        write_gedcom(indivs, fams, outfh)
+
+    print(f"Wrote {outfile}")
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
