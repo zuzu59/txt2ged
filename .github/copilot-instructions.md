@@ -1,67 +1,68 @@
-# Copilot Instructions for txt2ged
+# Copilot Agent Instructions for txt2ged
 
-## 1. Overview
-`txt2ged` is a tiny command‑line tool that converts a **tab‑indented** genealogical
-text file into a **GEDCOM** file.  The repository contains only one Python
-script (`txt2ged-v1.py`) and a handful of example files (`toto.txt`, `toto.ged`).
+## 1. Project Overview
+- **Purpose**: Convert a plain‑text family tree into a GEDCOM file.
+- **Core script**: `txt2ged.py` – parses the input, builds a tree of `Node` objects, assigns GEDCOM IDs, and writes the output.
+- **Input format**: Each line represents a person. Leading tabs indicate depth. Names and dates are in parentheses. Spouses are separated by the word `ép`.
+- **Output**: A valid GEDCOM file that can be opened in tools such as Topola.
 
-### Key concepts
-* **Indentation** – each leading tab represents a parent‑child level.
-* **Spouse separator** – the word `ép` (French for *married to*) splits a
-  person and their spouse.
-* **IDs** – individuals are given `@I1@`, `@I2@`, … and families `@F1@`, ….
-* **Name format** – `First Last` → `First /Last/` in GEDCOM.
+## 2. Key Files & Patterns
+| File | What it contains | Notable pattern |
+|------|------------------|-----------------|
+| `txt2ged.py` | Main logic | Recursive tree building (`build_tree`), ID assignment (`assign_ids`), and GEDCOM writing (`write_gedcom`). |
+| `README.md` | Usage, tests, prompt guidance | Shows how to run the script and how to craft prompts for Copilot Agent. |
+| `prompt *.txt` | Sample prompts for Copilot Agent | Demonstrates how to ask the agent to generate or modify the script. |
 
-## 2. Usage
-```bash
-python txt2ged-v1.py input.txt output.ged
+### 2.1 Parsing Lines
+```python
+depth = len(line) - len(line.lstrip("\t"))
+content = line.lstrip("\t").strip()
+parts = [p.strip() for p in re.split(r"\s*\bép\b\s*", content)]
 ```
-The script prints a confirmation message on success.  It uses only the
-standard library (`re`, `sys`, `pathlib`).
+- Tabs → depth.
+- `ép` splits person and spouse.
+- `PERSON_RE` extracts name and optional death year.
 
-## 3. Input format (see `toto.txt`)
+### 2.2 Building the Tree
+```python
+while stack and stack[-1][0] >= depth:
+    stack.pop()
 ```
-Pierre ZUFFEREY (1837) ép Marie DUPONT (1840)
-	Jean ZUFFEREY (1865) ép Sophie LEROY (1867)
-		Luc ZUFFEREY (1890)
+- Maintains a stack of `(depth, node)` to attach children correctly.
+
+### 2.3 ID Assignment
+```python
+node.individual_id = f"@I{indiv_counter}@"
+node.family_id = f"@F{fam_counter}@"
 ```
-* Each line is a person; tabs before the line denote the depth.
-* Birth years are in parentheses; a range like `1859-1931` is truncated to
-  the first year.
+- Sequential IDs ensure uniqueness.
 
-## 4. Output format
-The script writes a valid GEDCOM file (`toto.ged`).  Open it with the
-Topola viewer (link in `README.md`) to verify the tree.
+### 2.4 Writing GEDCOM
+- Families are written first, then individuals.
+- Each `Node` writes its spouse as a separate `INDI` record.
+- Parent–child links use `CHIL`, `FAMC`, and `FAMS` tags.
 
-## 5. Core functions
-* `parse_person_part(part)` – extracts name and birth year.
-* `format_name(name)` – converts to GEDCOM name syntax.
-* `main(argv)` – orchestrates parsing, ID assignment, stack‑based parent
-  resolution, and file writing.
+## 3. Developer Workflows
+1. **Run the script**
+   ```bash
+   python3 txt2ged.py toto.txt toto.ged
+   ```
+2. **Verify output** – open `toto.ged` in Topola: <https://pewu.github.io/topola-viewer/>.
+3. **Add a new prompt** – create a file like `prompt 260300.0000.txt` and ask Copilot Agent to generate a new feature.
+4. **Testing** – no automated tests yet; use the Topola viewer for visual validation.
 
-## 6. Developer workflow
-* **Run**: `python txt2ged-v1.py toto.txt toto.ged`.
-* **Test**: Open `toto.ged` in Topola (see `README.md`).
-* **Debug**: Add `print` statements or run the script in a debugger.
-* **Add features**: Edit `txt2ged-v1.py`; no build step is required.
+## 4. Copilot Agent Tips
+- **Ask for a specific function**: e.g., *“Add a function to export only the family tree without individuals.”*
+- **Use the existing prompt**: copy the content of `prompt 260126.1450.txt` and paste it into the Copilot chat.
+- **Explain the input format**: remind the agent that tabs denote depth and `ép` separates spouses.
+- **Show the current code**: provide the snippet of `parse_line` to help the agent understand the regex.
 
-## 7. Conventions & patterns
-* No external dependencies – keep the script lightweight.
-* Simple ID counters (`indiv_counter`, `fam_counter`).
-* Stack (`stack`) tracks the current parent at each indentation level.
-* Error handling is minimal: the script exits with a usage message if
-  arguments are missing.
+## 5. Conventions & Gotchas
+- **Tabs vs spaces**: the parser relies on tabs; spaces will break depth detection.
+- **Date format**: only four‑digit years are supported; the regex will fail otherwise.
+- **Spouse handling**: if a spouse is missing, the script still writes a `HUSB` tag with the individual's ID.
+- **No external dependencies**: pure Python 3.8+.
 
-## 8. Extending the tool
-* To support more GEDCOM tags, add them in the `write GEDCOM` section.
-* For richer input (e.g., dates, places), extend `parse_person_part`.
-* If you need a CLI wrapper, consider adding a `setup.py` or `pyproject.toml`.
+---
 
-## 9. Sample data
-* `toto.txt` – example input.
-* `toto.ged` – generated output.
-* `prompt 260126.1450.txt` – a prompt used by the author for AI experiments.
-
-## 10. Feedback
-Please let me know if any section is unclear or if you need additional
-examples for a specific workflow.
+Feel free to suggest improvements or report missing documentation.

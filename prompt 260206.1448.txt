@@ -1,4 +1,4 @@
-« Écris un script Python, nommé txt2ged.py, qui lit un fichier texte décrivant un arbre généalogique 
+« Écris un script en Python3, nommé txt2ged.py, qui lit un fichier texte décrivant un arbre généalogique 
 (exemple : toto.txt) et génère un fichier GEDCOM (toto.ged).
 
 Chaque ligne contient un nom, une année de naissance et, optionnellement, 
@@ -21,5 +21,5 @@ Pierre ZUFFEREY (1837) ép Marguerite ROSSIER (1850)
 					Isabelle ZUFFEREY (1965)
 ```
 
-Utilisation: txt2ged.py toto.txt toto.ged
+Utilisation: python3 txt2ged.py toto.txt toto.ged
 
