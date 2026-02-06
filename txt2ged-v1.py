@@ -22,10 +22,11 @@ from pathlib import Path
 
 
 class Individual:
-    def __init__(self, name, birth_year):
+    def __init__(self, name, birth_year, death_year=None):
         self.id = None  # to be set later
         self.name = name
         self.birth_year = birth_year
+        self.death_year = death_year
         self.fams = []  # families where this person is a spouse
         self.famc = None  # family where this person is a child
 
@@ -39,17 +40,28 @@ class Family:
 
 
 def parse_person_part(part):
-    """Parse a string like 'Pierre ZUFFEREY (1837)' into name and birth year."""
+    """Parse a string like 'Pierre ZUFFEREY (1837-1901)' into
+    (name, birth_year, death_year).  If only a single year is present it
+    is treated as a birth year; if a range is present the first year is
+    birth and the second is death.
+    """
     match = re.search(r"(.+?)\s*\(([^)]+)\)", part)
     if match:
         name = match.group(1).strip()
-        birth = match.group(2).strip()
-        # If birth is a range, take the first year
-        birth_year = birth.split("-")[0]
+        dates = match.group(2).strip()
+        # Allow optional spaces around the hyphen
+        if "-" in dates:
+            birth, death = re.split(r"\s*-\s*", dates, 1)
+            birth_year = birth.strip()
+            death_year = death.strip()
+        else:
+            birth_year = dates
+            death_year = None
     else:
         name = part.strip()
         birth_year = None
-    return name, birth_year
+        death_year = None
+    return name, birth_year, death_year
 
 
 def format_name(name):
@@ -89,20 +101,23 @@ def main(argv):
             level += 1
             raw_line = raw_line[1:]
         # Split person and spouse
-        parts = raw_line.split(" ép ")
+        # Split on the word "ép" with any surrounding whitespace
+        parts = re.split(r"\s+ép\s+", raw_line)
         person_part = parts[0]
         spouse_part = parts[1] if len(parts) > 1 else None
         # Parse person
-        person_name, person_birth = parse_person_part(person_part)
-        person = Individual(person_name, person_birth)
+        person_name, person_birth, person_death = parse_person_part(person_part)
+        person = Individual(person_name, person_birth, person_death)
         person.id = f"@I{indiv_counter}@"
         indiv_counter += 1
         individuals.append(person)
         # Parse spouse if present
         spouse = None
         if spouse_part:
-            spouse_name, spouse_birth = parse_person_part(spouse_part)
-            spouse = Individual(spouse_name, spouse_birth)
+            # Some lines may miss a space before the spouse name
+            spouse_part = spouse_part.strip()
+            spouse_name, spouse_birth, spouse_death = parse_person_part(spouse_part)
+            spouse = Individual(spouse_name, spouse_birth, spouse_death)
             spouse.id = f"@I{indiv_counter}@"
             indiv_counter += 1
             individuals.append(spouse)
@@ -142,6 +157,9 @@ def main(argv):
             if ind.birth_year:
                 out.write("1 BIRT\n")
                 out.write(f"2 DATE {ind.birth_year}\n")
+            if ind.death_year:
+                out.write("1 DEAT\n")
+                out.write(f"2 DATE {ind.death_year}\n")
             for fam_id in ind.fams:
                 out.write(f"1 FAMS {fam_id}\n")
             if ind.famc:
