@@ -11,6 +11,20 @@ Choisir le bon LLM dans la fenêtre Copilot Agent à droite dans VSCode !
 Ouvrir le *dernier* prompt, copier le *prompt* dans le chat Coplilot et cliquer sur la flèche *send*
 
 
+## Essais répétitifs avec différents modèles
+Le problème avec les IA, c'est qu'elles ne sont pas *répétitifs* ! A chaque essais on peut avoir une réponse un peut différentes et ne pas réussir du premier coup le *bench*.
+
+Afin d'être certains de pouvoir comparer les *benches*, avant le lancement, il faut effacer les fichiers générés avec:
+````
+rm toto.txt toto.ged txt2ged.py
+````
+Il faut aussi effacer la *pensée* du Copilot Agent en effacçant la session en haut à droite.<br>
+Cela va obliger de tout recommencer depuis le début
+
+
+
+
+
 ## Exécution du script python
 ````
 source venv/bin/activate
