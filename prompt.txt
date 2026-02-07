@@ -7,19 +7,19 @@ Voici le texte de l'arbre généalogique à convertir, que tu vas devoir mettre 
 
 ```
 Pierre ZUFFEREY (1837) ép Marguerite ROSSIER (1850)
-	Louis ZUFFEREY (1835) ép Madeleine PONT (1824)
-		Georges Louis ZUFFEREY (1859-1931) ép Euphémie ZUFFEREY (1857-1933)
-			Joseph Louis ZUFFEREY (1888-1967) ép Stéphanie SALAMIN (1891-1972)
-				Jean Louis Bertrand ZUFFEREY (1935-2018) ép Anne Marie BEZENCON (1934)
-					Christian ZUFFEREY (1959) ép Verena MARTY (1958)
-					Thierry ZUFFEREY (1962)
-					Isabelle ZUFFEREY (1965)
+    Louis ZUFFEREY (1835) ép Madeleine PONT (1824)
+        Georges Louis ZUFFEREY (1859-1931) ép Euphémie ZUFFEREY (1857-1933)
+            Joseph Louis ZUFFEREY (1888-1967) ép Stéphanie SALAMIN (1891-1972)
+                Jean Louis Bertrand ZUFFEREY (1935-2018) ép Anne Marie BEZENCON (1934)
+                    Christian ZUFFEREY (1959) ép Verena MARTY (1958)
+                    Thierry ZUFFEREY (1962)
+                    Isabelle ZUFFEREY (1965)
 ```
 
 Chaque ligne contient un nom, une année de naissance et, optionnellement, une année de décès 
 séparées par un tiret.
 Les conjoints sont séparés par 'ép'.
-La hiérarchie, donc la liaisons des individus dans les familles, est indiquée par des tabulations.
+Le changement de famille, donc la liaisons des individus dans les familles, est indiquée par une indentation de 4 espaces.
 Les caractères accentués sont UTF-8.
 
 
