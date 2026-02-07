@@ -1,19 +1,15 @@
 Écris un script en Python3, nommé txt2ged.py, qui lit un fichier texte décrivant un arbre
 généalogique (exemple : toto.txt) et génère un fichier GEDCOM (toto.ged).
 
-Chaque ligne contient un nom, une année de naissance et, optionnellement, 
-une année de décès séparées par un tiret (1837-1901).
+Chaque ligne contient un nom, une année de naissance et, optionnellement, une année de décès 
+séparées par un tiret.
+Les conjoints sont séparés par 'ép'.
+La hiérarchie, donc la liaisons des individus dans les familles, est indiquée par des tabulations.
 
-Le script doit conserver la hiérarchie indiquée par les tabulations, donc la liaisons des
-individus dans les familles. Gérer les conjoints séparés par ép, et écrire les balises 
-GEDCOM BIRT et DEAT pour les dates de naissance et de décès.
-
-Exécute le script et vérifie le fichier GEDCOM qu'il y ait bien la liaison des individus avec 
-leur famille, corrige si nécessaire !
-
+Exécute le script et vérifie le fichier GEDCOM. Que la structure hiérarchique doit être respectée,
+chaque enfant doit être lié à la famille de ses parents. Corrige si nécessaire !
 
 Utilisation: python3 txt2ged.py toto.txt toto.ged
-
 
 
 Voici l'arbre généalogique à convertir, que tu vas devoir mettre dans le fichier toto.txt:
@@ -28,5 +24,3 @@ Pierre ZUFFEREY (1837) ép Marguerite ROSSIER (1850)
 					Thierry ZUFFEREY (1962)
 					Isabelle ZUFFEREY (1965)
 ```
-
-
