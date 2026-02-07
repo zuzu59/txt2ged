@@ -8,7 +8,8 @@ Le script doit conserver la hiérarchie indiquée par les tabulations, donc la l
 individus dans les familles. Gérer les conjoints séparés par ép, et écrire les balises 
 GEDCOM BIRT et DEAT pour les dates de naissance et de décès.
 
-Exécute le script et vérifie la bonne cohérence du fichier GEDCOM et corrige si nécessaire !
+Exécute le script et vérifie le fichier GEDCOM qu'il y ait bien la liaison des individus avec 
+leur famille, corrige si nécessaire !
 
 
 Utilisation: python3 txt2ged.py toto.txt toto.ged

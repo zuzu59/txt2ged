@@ -1,5 +1,5 @@
 # Essais de petit script pour convertir un arbre généalogique de format texte en format gedcom avec l'IA (Copilot)
-zf260206.1635
+zf260206.1635, 260207.1700
 
 ## Buts
 Faire un petit bench de démo pour tester les possibilités de *Copilot Agent* dans VScode pour écrire du code avec différents LLM, en particulier des LMM locaux avec Ollama.
@@ -8,10 +8,7 @@ Faire un petit bench de démo pour tester les possibilités de *Copilot Agent* d
 ## Utilisation
 Choisir le bon LLM dans la fenêtre Copilot Agent à droite dans VSCode !
 
-Ouvrir le *dernier* prompt, afin que le prompt soit mis en *annexe* dans le chat Coplilot et lui demander cette tâche:
-````
-fait ce qu'il est demandé dans ce prompt
-````
+Ouvrir le *dernier* prompt, copier le *prompt* dans le chat Coplilot et cliquer sur la flèche *send*
 
 
 ## Exécution du script python
