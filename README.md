@@ -1,5 +1,5 @@
 # Essais de petit script pour convertir un arbre généalogique de format texte en format gedcom avec l'IA (Copilot)
-zf260206.1635, 260208.1528
+zf260206.1635, 260208.1618
 
 ## Buts
 Faire un petit bench de démo pour tester les possibilités de *Copilot Agent* dans VScode pour écrire du code avec différents LLM, en particulier des LMM locaux avec Ollama.
@@ -33,4 +33,11 @@ https://ged-inline.org/
 
 
 ## Remarques
+### Simplification du prompt
 J'ai constaté, avec les modèles en local sur Ollama, que plus le *prompt* était détaillé, plus il perdait les pédalles et n'arrivait à rien. Si on fait un *prompt* minimaliste, il s'en sort quasiment du 1er coup !
+
+### Qwen3-coder triche et tourne en rond à cause d'un contexte trop petit (55k) !
+Avec qwen3-coder, il *triche*, j'ai vu qu'il s'inspirait des résultats des autres. J'ai donc dû *chiffre*r les résultats afin qu'il ne puisse pas les utiliser dans son raisonnement !
+Et finalement il a tourné en rond et pas réussi. C'est sûrement à cause que je n'ai pas pu *monter* la fenêtre de contexte à plus de 55k, car il ne *tenait* plus dans les 24GB de la VRAM de ma NVIDIA 3090.
+
+
