@@ -1,20 +1,9 @@
 BUTS:
 Écrire un script en Python3, nommé txt2ged.py, qui lit un fichier texte décrivant un arbre
-généalogique (exemple : toto.txt) et génère un fichier GEDCOM (toto.ged).
+généalogique (input.txt) génère un fichier GEDCOM (test.ged).
 
 SOURCE:
-Voici le texte de l'arbre généalogique à convertir, que tu vas devoir mettre dans le fichier toto.txt:
-
-```
-Pierre ZUFFEREY (1837) ép Marguerite ROSSIER (1850)
-    Louis ZUFFEREY (1835) ép Madeleine PONT (1824)
-        Georges Louis ZUFFEREY (1859-1931) ép Euphémie ZUFFEREY (1857-1933)
-            Joseph Louis ZUFFEREY (1888-1967) ép Stéphanie SALAMIN (1891-1972)
-                Jean Louis Bertrand ZUFFEREY (1935-2018) ép Anne Marie BEZENCON (1934)
-                    Christian ZUFFEREY (1959) ép Verena MARTY (1958)
-                    Thierry ZUFFEREY (1962)
-                    Isabelle ZUFFEREY (1965)
-```
+Le texte de l'arbre généalogique à convertir se trouve dans le fichier input.txt
 
 Chaque ligne contient un nom, une année de naissance et, optionnellement, une année de décès 
 séparées par un tiret.
@@ -24,13 +13,13 @@ Les caractères accentués sont UTF-8.
 
 
 TACHES:
-1) analyse la structure du fichier toto.txt
-2) écrit le script de conversion
-3) Exécute le script et vérifie le fichier GEDCOM. Que la structure hiérarchique soit respectée,
+1) analyse la structure du fichier input.txt
+2) écrit le script de conversion txt2ged.py
+3) Exécute le script et vérifie le fichier GEDCOM (test.ged). Que la structure hiérarchique soit respectée,
 chaque enfant doit être lié à la famille de ses parents
 4) Corrige si nécessaire !
 
 
 REMARQUES:
 - Il ne faut PAS déterminer le genre !
-- Utilisation: python3 txt2ged.py toto.txt toto.ged
+- Utilisation: python3 txt2ged.py input.txt test.ged
