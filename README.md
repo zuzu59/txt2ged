@@ -1,5 +1,5 @@
 # Essais de petit script pour convertir un arbre généalogique de format texte en format gedcom avec l'IA (Copilot)
-zf260206.1635, 260209.1159
+zf260206.1635, 260317.0942
 
 ## Buts
 Faire un petit bench de démo pour tester les possibilités de *Copilot Agent* dans VScode pour écrire du code avec différents LLM, en particulier des LMM locaux avec Ollama.
@@ -49,3 +49,17 @@ Après un wk de tests je dois constater que l'utilisation des modèles locaux su
 En utilisant la version pro de Github Copilot Agent, en moins de 15 secondes ce bench a été résolu du 1er coup avec Claude Sonnet 4.5 \o/
 
 
+
+
+
+## Astuces de travail
+
+### Comment diminuer la taille du prompt dans le terminal bash ?
+Il suffit simplement de faire ceci:
+```
+PS1='\$ '
+```
+On peut le rendre permanent avec:
+```bash
+echo -e "PS1='\$ '" >> ~/.bashrc
+```
