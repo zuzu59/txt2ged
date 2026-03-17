@@ -1,0 +1,27 @@
+name: My Config
+version: 0.0.1
+schema: v1
+
+models:
+  - name: qwen3.5
+    provider: ollama
+    model: qwen3.5
+    apiBase: http://localhost:11434 # if running a remote instance of Ollama
+
+  - name: ministral-3:8b
+    provider: ollama
+    model: ministral-3:8b
+    apiBase: http://localhost:11434 # if running a remote instance of Ollama
+
+  - name: ministral-3:14b
+    provider: ollama
+    model: ministral-3:14b
+    apiBase: http://localhost:11434 # if running a remote instance of Ollama
+
+  - name: rnj-1:8b
+    provider: ollama
+    model: rnj-1:8b
+    apiBase: http://localhost:11434 # if running a remote instance of Ollama
+
+
+
