@@ -1,0 +1,7 @@
+Écrire un script en Python3, nommé txt2ged.py, qui lit un fichier texte décrivant un arbre
+généalogique (input.txt) génère un fichier GEDCOM (test.ged).
+
+Exécute le script et vérifie la validation du fichier GEDCOM (test.ged). Que la structure hiérarchique soit respectée,
+chaque individu doit être lié à la famille de ses parents.
+
+Corrige si nécessaire !

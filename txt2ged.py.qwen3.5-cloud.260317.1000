@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+txt2ged.py - Convertit un fichier texte d'arbre généalogique en GEDCOM
+"""
+
+import re
+from datetime import datetime
+
+def determine_sex(name):
+    """Détermine le sexe basé sur le nom."""
+    female_first_names = ['Marguerite', 'Madeleine', 'Euphémie', 'Stéphanie', 'Anne', 'Verena', 'Isabelle']
+    first_name = name.split()[0] if name else ''
+    
+    if first_name in female_first_names:
+        return 'F'
+    return 'M'
+
+def parse_input_file(filename):
+    """Parse le fichier d'entrée et extrait la structure de l'arbre."""
+    individuals = {}
+    families = []
+    
+    with open(filename, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    
+    # Structure pour suivre les parents à chaque niveau d'indentation
+    # [(person_id, spouse_id, family_id), ...]
+    parent_stack = []
+    
+    individual_id = 1
+    family_id = 1
+    
+    for line in lines:
+        if not line.strip():
+            continue
+        
+        # Calculer le niveau d'indentation
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+        level = indent // 4  # 4 espaces par niveau
+        
+        # Parser la ligne
+        line_stripped = stripped.strip()
+        
+        # Séparer par "ép" si présent
+        if ' ép ' in line_stripped:
+            person_part, spouse_part = line_stripped.split(' ép ', 1)
+        else:
+            person_part = line_stripped
+            spouse_part = None
+        
+        # Parser la personne principale
+        person_pattern = r'(.+?)\s*\((\d{4})(?:-(\d{4}))?\)'
+        person_match = re.match(person_pattern, person_part)
+        
+        if not person_match:
+            continue
+        
+        person_name = person_match.group(1).strip()
+        birth_year = person_match.group(2)
+        death_year = person_match.group(3) if person_match.group(3) else None
+        
+        # Créer ou récupérer l'individu principal
+        if person_name not in individuals:
+            individuals[person_name] = {
+                'id': f'@I{individual_id}@',
+                'name': person_name,
+                'birth': birth_year,
+                'death': death_year,
+                'sex': determine_sex(person_name)
+            }
+            individual_id += 1
+        
+        person = individuals[person_name]
+        
+        # Gérer le conjoint
+        spouse_id = None
+        if spouse_part:
+            spouse_match = re.match(person_pattern, spouse_part)
+            if spouse_match:
+                spouse_name = spouse_match.group(1).strip()
+                spouse_birth = spouse_match.group(2)
+                spouse_death = spouse_match.group(3) if spouse_match.group(3) else None
+                
+                if spouse_name not in individuals:
+                    individuals[spouse_name] = {
+                        'id': f'@I{individual_id}@',
+                        'name': spouse_name,
+                        'birth': spouse_birth,
+                        'death': spouse_death,
+                        'sex': 'F' if person['sex'] == 'M' else 'M'
+                    }
+                    individual_id += 1
+                spouse_id = individuals[spouse_name]['id']
+        
+        # Créer une famille pour ce couple seulement si il y a un conjoint
+        if spouse_id:
+            family = {
+                'id': f'@F{family_id}@',
+                'husband': person['id'] if person['sex'] == 'M' else spouse_id,
+                'wife': spouse_id if person['sex'] == 'M' else person['id'],
+                'children': []
+            }
+            families.append(family)
+            
+            # Mettre à jour la pile de parents
+            parent_stack = parent_stack[:level]
+            parent_stack.append((person['id'], spouse_id, family['id']))
+            
+            family_id += 1
+        else:
+            # Pas de conjoint, mais on garde la trace dans parent_stack
+            parent_stack = parent_stack[:level]
+            parent_stack.append((person['id'], None, None))
+        
+        # Si ce n'est pas le premier niveau, ajouter comme enfant de la famille parentale
+        if level > 0 and len(parent_stack) > 1:
+            # Les parents sont au niveau précédent
+            parent_person_id, parent_spouse_id, parent_family_id = parent_stack[level - 1]
+            
+            # Trouver la famille des parents et ajouter cet enfant
+            if parent_family_id:
+                for fam in families:
+                    if fam['id'] == parent_family_id:
+                        fam['children'].append(person['id'])
+                        break
+    
+    return individuals, families
+
+
+def generate_gedcom(individuals, families, output_filename):
+    """Génère le fichier GEDCOM."""
+    gedcom_lines = []
+    
+    # En-tête GEDCOM
+    gedcom_lines.append("0 HEAD")
+    gedcom_lines.append("1 SOUR txt2ged")
+    gedcom_lines.append("1 DATE " + datetime.now().strftime("%d %b %Y"))
+    gedcom_lines.append("1 GEDC")
+    gedcom_lines.append("2 VERSI 5.5")
+    gedcom_lines.append("1 CHAR UTF-8")
+    
+    # Générer les individus
+    for name, person in individuals.items():
+        gedcom_lines.append(f"0 {person['id']} INDI")
+        gedcom_lines.append(f"1 NAME {person['name']}")
+        
+        if person['birth']:
+            gedcom_lines.append("1 BIRT")
+            gedcom_lines.append(f"2 DATE {person['birth']}")
+        
+        if person['death']:
+            gedcom_lines.append("1 DEAT")
+            gedcom_lines.append(f"2 DATE {person['death']}")
+        
+        gedcom_lines.append(f"1 SEX {person['sex']}")
+    
+    # Générer les familles
+    for family in families:
+        gedcom_lines.append(f"0 {family['id']} FAM")
+        
+        if family['husband']:
+            gedcom_lines.append(f"1 HUSB {family['husband']}")
+        
+        if family['wife']:
+            gedcom_lines.append(f"1 WIFE {family['wife']}")
+        
+        for child_id in family['children']:
+            gedcom_lines.append(f"1 CHIL {child_id}")
+    
+    # Ajout des liens FAMC et FAMS aux individus
+    for name, person in individuals.items():
+        indy_links = []
+        
+        # Trouver la famille où la personne est enfant (FAMC)
+        for family in families:
+            if person['id'] in family['children']:
+                indy_links.append(f"1 FAMC {family['id']}")
+                break
+        
+        # Trouver la famille où la personne est parent (FAMS)
+        for family in families:
+            if family['husband'] == person['id'] or family['wife'] == person['id']:
+                indy_links.append(f"1 FAMS {family['id']}")
+                break
+        
+        # Insérer ces liens après la déclaration INDI
+        for i, line in enumerate(gedcom_lines):
+            if line.endswith(person['id'] + " INDI"):
+                for j, link_line in enumerate(indy_links):
+                    gedcom_lines.insert(i + 2 + j, link_line)
+                break
+    
+    # Pied de page
+    gedcom_lines.append("0 TRLR")
+    
+    # Écrire le fichier
+    with open(output_filename, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(gedcom_lines))
+    
+    return gedcom_lines
+
+
+def main():
+    input_file = "input.txt"
+    output_file = "test.ged"
+    
+    print(f"Lecture du fichier {input_file}...")
+    individuals, families = parse_input_file(input_file)
+    
+    print(f"Trouvé {len(individuals)} individus et {len(families)} familles")
+    
+    print(f"Génération du fichier GEDCOM {output_file}...")
+    gedcom_lines = generate_gedcom(individuals, families, output_file)
+    
+    print(f"Fichier {output_file} généré avec succès!")
+    print(f"Nombre de lignes GEDCOM: {len(gedcom_lines)}")
+    
+    # Afficher un aperçu
+    print("\n--- Aperçu du GEDCOM ---")
+    for line in gedcom_lines[:30]:
+        print(line)
+    if len(gedcom_lines) > 30:
+        print(f"... et {len(gedcom_lines) - 30} lignes supplémentaires")
+
+
+if __name__ == "__main__":
+    main()
