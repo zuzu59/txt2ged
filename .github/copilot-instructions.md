@@ -57,8 +57,8 @@ applyTo: "**/*.py"
 ---
 
 # Directives supplémentaires pour l’agent
-
-- Pas de génération de code basée sur `test.ged` déjà existant (benchmark doit rester déterministe).
+- ne va JAMAIS dans le dossier oldies et ne lit pas les fichiers qui s'y trouvent.
+- en début de chaque session exécute toujours rm test.ged txt2ged.py
 - Si le fichier `input.txt` est mal formé, échouer proprement et documenter le problème.
 - Prioriser lisibilité et maintenabilité sur abscondes optimisations.
 
