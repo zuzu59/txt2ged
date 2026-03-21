@@ -1,4 +1,4 @@
-# Minimal Prompt for txt2ged.py
+# Prompt for txt2ged.py
 
 BUTS:
 Écrire un script en Python3, nommé txt2ged.py, qui lit un fichier texte décrivant un arbre généalogique (input.txt) génère un fichier GEDCOM (test.ged).

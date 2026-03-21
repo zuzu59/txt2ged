@@ -1,5 +1,5 @@
 # Essais de petit script pour convertir un arbre généalogique de format texte en format gedcom avec l'IA (Copilot)
-zf260206.1635, 260317.0942
+zf260206.1635, 260321.1219
 
 ## Buts
 Faire un petit bench de démo pour tester les possibilités de *Copilot Agent* dans VScode pour écrire du code avec différents LLM, en particulier des LMM locaux avec Ollama.
@@ -8,7 +8,7 @@ Faire un petit bench de démo pour tester les possibilités de *Copilot Agent* d
 ## Utilisation
 Choisir le bon LLM dans la fenêtre Copilot Agent à droite dans VSCode !
 
-Copier le contenu du fichier **prompt.txt** ou **prompt-minimal.txt** dans le chat Coplilot, ajouter comme annexe le fichier **input.txt** et cliquer sur la flèche **send**
+Copier le contenu du fichier **prompt.txt** et cliquer sur la flèche **send**
 
 
 ## Essais répétitifs avec différents modèles
@@ -37,16 +37,7 @@ https://ged-inline.org/
 
 
 ## Remarques
-### Simplification du prompt
-J'ai constaté, avec les modèles en local sur Ollama, que plus le *prompt* était détaillé, plus il perdait les pédalles et n'arrivait à rien. Si on fait un *prompt* minimaliste, il s'en sort quasiment du 1er coup !
-
-### Qwen3-coder triche et tourne en rond à cause d'un contexte trop petit (55k) !
-Avec qwen3-coder, il *triche*, j'ai vu qu'il s'inspirait des résultats des autres. J'ai donc dû *chiffre*r les résultats afin qu'il ne puisse pas les utiliser dans son raisonnement !
-Et finalement il a tourné en rond et pas réussi. C'est sûrement à cause que je n'ai pas pu *monter* la fenêtre de contexte à plus de 55k, car il ne *tenait* plus dans les 24GB de la VRAM de ma NVIDIA 3090.
-
-### Echec manifeste des modèles Ollama locaux sur GPU 24GB VRAM
-Après un wk de tests je dois constater que l'utilisation des modèles locaux sur un Ollama GPU 24GB de VRAM n'est pas suffisant pour résoudre ce bench. Principalement à cause de la fenêtre de contexte qui fait *sauter* la VRAM du GPU !
-En utilisant la version pro de Github Copilot Agent, en moins de 15 secondes ce bench a été résolu du 1er coup avec Claude Sonnet 4.5 \o/
+### Copilot doit utiliser le fichier copilot-instructions.md
 
 
 
