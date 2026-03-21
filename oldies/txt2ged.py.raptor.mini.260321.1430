@@ -1,0 +1,393 @@
+#!/usr/bin/env python3
+"""Convertisseur texte vers GEDCOM (5.5.1) pour arbre généalogique indenté."""
+from __future__ import annotations
+
+import argparse
+import logging
+import os
+import re
+import sqlite3
+import sys
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
+
+logger = logging.getLogger("txt2ged")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+
+class ParserError(Exception):
+    """Exception levée en cas de format d'entrée invalide."""
+
+
+class InvalidFamilyException(Exception):
+    """Exception levée pour famille invalide selon règles métier."""
+
+
+class MissingPersonException(Exception):
+    """Exception levée si une personne référencée est absente."""
+
+
+@dataclass
+class Individual:
+    name: str
+    raw_dates: Optional[str] = None
+    xref: Optional[str] = None
+    id: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        self.name = self.name.strip()
+
+    @property
+    def givn(self) -> str:
+        parts = self.name.split()
+        return " ".join(parts[:-1]) if len(parts) > 1 else self.name
+
+    @property
+    def surn(self) -> str:
+        parts = self.name.split()
+        return parts[-1] if parts else ""
+
+
+@dataclass
+class Family:
+    husband: Optional[Individual] = None
+    wife: Optional[Individual] = None
+    children: List[Individual] = field(default_factory=list)
+    id: Optional[int] = None
+    xref: Optional[str] = None
+
+
+@dataclass
+class Node:
+    level: int
+    individual: Individual
+    spouse: Optional[Individual] = None
+
+
+class TxtParser:
+    """Parcours du fichier d'entrée et construction des individus et familles."""
+
+    SPOUSE_TOKEN = re.compile(r"\b(?:ép|ep)\b", re.IGNORECASE)
+    PERSON_TOKEN = re.compile(r"^(?P<name>.+?)\s*(?:\((?P<dates>[^\)]*)\))?$")
+    INDIVIDUAL_KEY = re.compile(r"^\s*(?P<content>.+?)\s*$")
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.individuals_by_key: Dict[Tuple[str, Optional[str]], Individual] = {}
+        self.nodes_by_level: Dict[int, Node] = {}
+        self.families: List[Family] = []
+
+    def parse(self) -> Tuple[List[Individual], List[Family]]:
+        lines = self.text.strip().splitlines()
+
+        for raw_line_no, raw_line in enumerate(lines, start=1):
+            if not raw_line.strip():
+                continue
+
+            leading = len(raw_line) - len(raw_line.lstrip(' '))
+            if leading % 4 != 0:
+                raise ParserError(f"Indentation invalide à la ligne {raw_line_no}: '{raw_line}'")
+
+            level = leading // 4
+            content = raw_line.strip()
+            if not content:
+                continue
+
+            parts = self.SPOUSE_TOKEN.split(content)
+            if len(parts) > 2:
+                raise ParserError(f"Plus de deux conjoints détectés à la ligne {raw_line_no}: '{content}'")
+
+            person_text = parts[0].strip()
+            spouse_text = parts[1].strip() if len(parts) == 2 else None
+
+            person = self._parse_individual(person_text, raw_line_no)
+            spouse = self._parse_individual(spouse_text, raw_line_no) if spouse_text else None
+
+            node = Node(level=level, individual=person, spouse=spouse)
+
+            if level > 0:
+                if (level - 1) not in self.nodes_by_level:
+                    raise ParserError(
+                        f"Structure familiale cassée à la ligne {raw_line_no}: aucun parent pour le niveau {level}"
+                    )
+
+                parent_node = self.nodes_by_level[level - 1]
+                family = self._get_or_create_family(parent_node)
+                family.children.append(person)
+
+            self.nodes_by_level[level] = node
+
+            # Clé d'unicity
+            self._register_individual(person)
+            if spouse:
+                self._register_individual(spouse)
+
+        # Après parsing, filtrer familles ayant enfants
+        self.families = [fam for fam in self.families if fam.children]
+
+        # Validation
+        for family in self.families:
+            if not (family.husband or family.wife):
+                raise InvalidFamilyException("Famille sans parent détectée")
+            if not family.children:
+                raise InvalidFamilyException("Famille sans enfant détectée")
+
+        all_individuals = list(self.individuals_by_key.values())
+        return all_individuals, self.families
+
+    def _parse_individual(self, text: Optional[str], line_no: int) -> Individual:
+        if text is None or not text.strip():
+            raise ParserError(f"Personne vide à la ligne {line_no}")
+
+        match = self.PERSON_TOKEN.match(text)
+        if not match:
+            raise ParserError(f"Impossible de parser la personne '{text}' à la ligne {line_no}")
+
+        name = match.group('name').strip()
+        dates = match.group('dates').strip() if match.group('dates') else None
+
+        return self._get_cached_individual(name, dates)
+
+    def _get_cached_individual(self, name: str, dates: Optional[str]) -> Individual:
+        key = (name.strip(), dates.strip() if dates else None)
+        existing = self.individuals_by_key.get(key)
+        if existing:
+            return existing
+
+        person = Individual(name=name, raw_dates=dates)
+        self.individuals_by_key[key] = person
+        return person
+
+    def _register_individual(self, individual: Individual) -> None:
+        key = (individual.name, individual.raw_dates)
+        self.individuals_by_key.setdefault(key, individual)
+
+    def _get_or_create_family(self, parent_node: Node) -> Family:
+        existing = None
+        for fam in self.families:
+            if fam.husband is parent_node.individual and fam.wife is parent_node.spouse:
+                existing = fam
+                break
+
+        if existing:
+            return existing
+
+        fam = Family(husband=parent_node.individual, wife=parent_node.spouse)
+        self.families.append(fam)
+        return fam
+
+
+class DatabaseManager:
+    """Gère le staging en SQLite et les validations métier."""
+
+    def __init__(self, db_path: str = ':memory:') -> None:
+        self.db_path = db_path
+        self.conn = sqlite3.connect(self.db_path)
+        self.conn.execute("PRAGMA foreign_keys = ON")
+        self._schema()
+
+    def _schema(self) -> None:
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS individuals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nom TEXT NOT NULL,
+                prenom TEXT,
+                date_naiss TEXT,
+                sexe TEXT,
+                id_origine_gedcom TEXT
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS families (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_mari INTEGER,
+                id_femme INTEGER,
+                date_mariage TEXT,
+                lieu_mariage TEXT,
+                FOREIGN KEY(id_mari) REFERENCES individuals(id),
+                FOREIGN KEY(id_femme) REFERENCES individuals(id)
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS family_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_famille INTEGER NOT NULL,
+                id_individu INTEGER NOT NULL,
+                role TEXT CHECK(role IN ('HUSB','WIFE','CHIL')) NOT NULL,
+                FOREIGN KEY(id_famille) REFERENCES families(id),
+                FOREIGN KEY(id_individu) REFERENCES individuals(id)
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS xref_map (
+                xref TEXT UNIQUE,
+                table_name TEXT,
+                row_id INTEGER
+            )
+            """
+        )
+        self.conn.commit()
+
+    def upsert(self, individuals: List[Individual], families: List[Family]) -> None:
+        cur = self.conn.cursor()
+
+        # Insert individuals
+        for ind in individuals:
+            first = ind.givn
+            cur.execute(
+                "INSERT INTO individuals (nom, prenom, date_naiss, sexe, id_origine_gedcom) VALUES (?, ?, ?, ?, ?)",
+                (ind.surn, first, ind.raw_dates, None, None),
+            )
+            ind.id = cur.lastrowid
+
+        # Insert families
+        for fam in families:
+            if not fam.children:
+                raise InvalidFamilyException("Famille sans enfant lors de l'upsert")
+
+            husband_id = fam.husband.id if fam.husband else None
+            wife_id = fam.wife.id if fam.wife else None
+            cur.execute(
+                "INSERT INTO families (id_mari, id_femme, date_mariage, lieu_mariage) VALUES (?, ?, ?, ?)",
+                (husband_id, wife_id, None, None),
+            )
+            fam.id = cur.lastrowid
+
+            if husband_id:
+                cur.execute(
+                    "INSERT INTO family_links (id_famille, id_individu, role) VALUES (?, ?, ?)",
+                    (fam.id, husband_id, 'HUSB'),
+                )
+            if wife_id:
+                cur.execute(
+                    "INSERT INTO family_links (id_famille, id_individu, role) VALUES (?, ?, ?)",
+                    (fam.id, wife_id, 'WIFE'),
+                )
+
+            for child in fam.children:
+                if child.id is None:
+                    raise MissingPersonException("Enfant sans identifiant")
+                cur.execute(
+                    "INSERT INTO family_links (id_famille, id_individu, role) VALUES (?, ?, ?)",
+                    (fam.id, child.id, 'CHIL'),
+                )
+
+        self.conn.commit()
+
+
+class GedcomExporter:
+    """Export GEDCOM minimal compatible 5.5.1."""
+
+    def __init__(self, individuals: List[Individual], families: List[Family]) -> None:
+        self.individuals = individuals
+        self.families = families
+
+    def export(self, output_path: str) -> None:
+        # assign xrefs
+        for idx, ind in enumerate(self.individuals, start=1):
+            ind.xref = f"@I{idx}@"
+
+        for idx, fam in enumerate(self.families, start=1):
+            fam.xref = f"@F{idx}@"
+
+        # Build family membership maps for FAMS/FAMC tags by individual xref
+        fams_for_individual: Dict[str, List[str]] = {ind.xref: [] for ind in self.individuals if ind.xref}
+        famc_for_individual: Dict[str, List[str]] = {ind.xref: [] for ind in self.individuals if ind.xref}
+
+        for fam in self.families:
+            if fam.husband and fam.husband.xref:
+                fams_for_individual.setdefault(fam.husband.xref, []).append(fam.xref)
+            if fam.wife and fam.wife.xref:
+                fams_for_individual.setdefault(fam.wife.xref, []).append(fam.xref)
+            for child in fam.children:
+                if child.xref:
+                    famc_for_individual.setdefault(child.xref, []).append(fam.xref)
+
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write("0 HEAD\n")
+            f.write("1 SOUR txt2ged\n")
+            f.write("1 GEDC\n")
+            f.write("2 VERS 5.5.1\n")
+            f.write("2 FORM LINEAGE-LINKED\n")
+            f.write("1 CHAR UTF-8\n")
+            f.write("1 SUBM @SUBM@\n")
+
+            for ind in self.individuals:
+                f.write(f"0 {ind.xref} INDI\n")
+                f.write(f"1 NAME {ind.givn} /{ind.surn}/\n")
+                if ind.xref:
+                    for famid in fams_for_individual.get(ind.xref, []):
+                        f.write(f"1 FAMS {famid}\n")
+                    for famid in famc_for_individual.get(ind.xref, []):
+                        f.write(f"1 FAMC {famid}\n")
+                if ind.raw_dates:
+                    dates = ind.raw_dates.strip()
+                    if '-' in dates:
+                        birth, death = dates.split('-', 1)
+                        birth = birth.strip()
+                        death = death.strip()
+                        if birth:
+                            f.write(f"1 BIRT\n2 DATE {birth}\n")
+                        if death:
+                            f.write(f"1 DEAT\n2 DATE {death}\n")
+                    else:
+                        f.write(f"1 BIRT\n2 DATE {dates}\n")
+
+            for fam in self.families:
+                f.write(f"0 {fam.xref} FAM\n")
+                if fam.husband and fam.husband.xref:
+                    f.write(f"1 HUSB {fam.husband.xref}\n")
+                if fam.wife and fam.wife.xref:
+                    f.write(f"1 WIFE {fam.wife.xref}\n")
+                for child in fam.children:
+                    if child.xref:
+                        f.write(f"1 CHIL {child.xref}\n")
+
+            f.write("0 @SUBM@ SUBM\n")
+            f.write("1 NAME txt2ged\n")
+            f.write("0 TRLR\n")
+
+
+def run(input_file: str, output_file: str) -> None:
+    if not os.path.isfile(input_file):
+        raise FileNotFoundError(f"Fichier introuvable: {input_file}")
+
+    with open(input_file, 'r', encoding='utf-8') as f:
+        text = f.read()
+
+    parser = TxtParser(text)
+    individuals, families = parser.parse()
+
+    db = DatabaseManager(':memory:')
+    db.upsert(individuals, families)
+
+    exporter = GedcomExporter(individuals=individuals, families=families)
+    exporter.export(output_file)
+
+    logger.info(f"GEDCOM exporté dans {output_file} ({len(individuals)} individus, {len(families)} familles)")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Convertisseur texte vers GEDCOM")
+    parser.add_argument('input', help='fichier texte d’entrée')
+    parser.add_argument('output', help='fichier GEDCOM de sortie')
+    args = parser.parse_args()
+
+    try:
+        run(args.input, args.output)
+    except Exception as exc:
+        logger.error("Échec : %s", exc)
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
