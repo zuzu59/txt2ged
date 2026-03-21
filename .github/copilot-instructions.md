@@ -9,21 +9,22 @@ applyTo: "**/*.py"
 2. Générer un fichier GEDCOM valide (`test.ged`) en préservant tous les liens de parenté.
 3. Viser robustesse, traçabilité, tests et conformité GEDCOM 5.5.1.
 
-## 2. Pipeline recommandé
-1. Extraction (parser) :
+## 2. Pipeline obligatoire
+1. Prompt: 
+   - utiliser le fichier `prompt.txt` pour guider l’agent dans la compréhension du format d’entrée et des règles métier.
+2. Extraction (parser) :
    - Interpréter la hiérarchie par indentation (4 espaces = génération).
    - Distinguer individus, familles, parents/enfants, conjoints (`ep` / `ép`).
    - Construire objets métiers : `Individual`, `Family`, `FamilyLink`.
-2. Staging SQLite :
+3. Staging SQLite :
    - Base mémoire ou fichier avec tables `individuals`, `families`, `family_links`.
    - Mappage des XREFs GEDCOM (`@I1@`, `@F1@`) vers IDs internes.
-3. Validation et upsert :
+4. Validation et upsert :
    - Chaque insertion vérifie l’intégrité : un parent ET au moins un enfant pour chaque famille, pas de références orphelines.
    - Rejet avec Exception pour violation de règles métier.
-4. Export GEDCOM :
-   - Utilisation de la lib python-gedcom pour l'exportation.
+5. Export GEDCOM :
    - Reconstituer INDI/FAM avec cross-refs correctes.
-   - Générer un GEDCOM 5.5.1 compatible.
+   - Obligation d'utiliser la lib `python-gedcom` pour la création du fichier GEDCOM 5.5.1 compatible.
 
 ## 3. Règles métier
 - Ne jamais inférer le sexe depuis le nom.
@@ -52,13 +53,13 @@ applyTo: "**/*.py"
 - Installation : `pip install python-gedcom`
 - Exécution : `python3 txt2ged.py input.txt test.ged`
 - Tests : `pytest -q`
-- Clean : `rm -f test.ged`.
+- Clean : `rm -f test.ged txt2ged.py`
 
 ---
 
 # Directives supplémentaires pour l’agent
 - ne va JAMAIS dans le dossier oldies et ne lit pas les fichiers qui s'y trouvent.
-- en début de chaque session exécute toujours rm test.ged txt2ged.py
+- en début de chaque session exécute toujours `rm -f test.ged txt2ged.py`
 - Si le fichier `input.txt` est mal formé, échouer proprement et documenter le problème.
 - Prioriser lisibilité et maintenabilité sur abscondes optimisations.
 
