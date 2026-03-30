@@ -1,5 +1,5 @@
 # Essais de petit script pour convertir un arbre généalogique de format texte en format gedcom avec l'IA (Copilot)
-zf260206.1635, 260321.1219
+zf260206.1635, 260321.1219, toto
 
 ## Buts
 Faire un petit bench de démo pour tester les possibilités de *Copilot Agent* dans VScode pour écrire du code avec différents LLM, en particulier des LMM locaux avec Ollama.
